@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Javascript 2</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; }
+    h1 { font-size: 28px; }
+
+    .form-row { display: flex; align-items: center; margin-bottom: 4px; }
+    .form-row label { width: 100px; }
+    .form-row input { width: 150px; }
+    .form-buttons { margin: 12px 0 20px 100px; }
+
+    fieldset { padding: 8px 10px; }
+    #noRecords { color: crimson; font-size: 11px; }
+
+    #recordsTable { border-collapse: collapse; margin: 0 auto; }
+    #recordsTable th, #recordsTable td {
+      border: 1px solid #333;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    #recordsTable th { border-top: 2px solid #333; }
+    #recordsTable td.action, #recordsTable th.action { text-align: center; }
+
+    #controls { margin-top: 6px; display: none; }
+  </style>
+</head>
+<body>
+  <h1>Javascript Web Output #2</h1>
+
+  <div class="form-row"><label for="firstName">First Name:</label><input type="text" id="firstName"></div>
+  <div class="form-row"><label for="middleName">Middle Name:</label><input type="text" id="middleName"></div>
+  <div class="form-row"><label for="lastName">Last Name:</label><input type="text" id="lastName"></div>
+  <div class="form-row"><label for="age">Age:</label><input type="text" id="age"></div>
+
+  <div class="form-buttons">
+    <button id="submitBtn">Insert</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+  <fieldset>
+    <legend>Records</legend>
+    <div id="noRecords">No Records...</div>
+    <table id="recordsTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>First Name</th>
+          <th>Middle Name</th>
+          <th>Last Name</th>
+          <th>Age</th>
+          <th class="action">Action</th>
+        </tr>
+      </thead>
+      <tbody id="recordsBody"></tbody>
+    </table>
+  </fieldset>
+  <div id="controls">
+    <button id="clearRecordsBtn">Clear Records</button>
+    <label for="sortField">Sort by:</label>
+    <select id="sortField">
+      <option value="firstName">First Name</option>
+      <option value="middleName">Middle Name</option>
+      <option value="lastName" selected>Last Name</option>
+      <option value="age">Age</option>
+    </select>
+    <select id="sortOrder">
+      <option value="asc" selected>A-Z</option>
+      <option value="desc">Z-A</option>
+    </select>
+    <button id="saveBtn">Save to Local Storage</button>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "records";
+    let records = [];      
+    let editingId = null;  
+    let nextId = 1;
+
+    const firstName = document.getElementById("firstName");
+    const middleName = document.getElementById("middleName");
+    const lastName = document.getElementById("lastName");
+    const age = document.getElementById("age");
+    const submitBtn = document.getElementById("submitBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const noRecords = document.getElementById("noRecords");
+    const table = document.getElementById("recordsTable");
+    const tbody = document.getElementById("recordsBody");
+    const controls = document.getElementById("controls");
+    const clearRecordsBtn = document.getElementById("clearRecordsBtn");
+    const sortField = document.getElementById("sortField");
+    const sortOrder = document.getElementById("sortOrder");
+    const saveBtn = document.getElementById("saveBtn");
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function clearForm() {
+      firstName.value = "";
+      middleName.value = "";
+      lastName.value = "";
+      age.value = "";
+    }
+
+    function setMode(editId) {
+      editingId = editId;
+      submitBtn.textContent = editId === null ? "Insert" : "Update";
+    }
+
+    function getSortedRecords() {
+      const field = sortField.value;
+      const dir = sortOrder.value === "asc" ? 1 : -1;
+      return [...records].sort((a, b) => {
+        if (field === "age") return (a.age - b.age) * dir;
+        return a[field].localeCompare(b[field], undefined, { sensitivity: "base" }) * dir;
+      });
+    }
+
+    function render() {
+      const hasRecords = records.length > 0;
+      noRecords.style.display = hasRecords ? "none" : "block";
+      table.style.display = hasRecords ? "table" : "none";
+      controls.style.display = hasRecords ? "block" : "none";
+
+      tbody.innerHTML = getSortedRecords().map(r => `
+        <tr>
+          <td>${escapeHtml(r.firstName)}</td>
+          <td>${escapeHtml(r.middleName)}</td>
+          <td>${escapeHtml(r.lastName)}</td>
+          <td>${r.age}</td>
+          <td class="action">
+            <button data-action="delete" data-id="${r.id}">Delete</button>
+            <button data-action="edit" data-id="${r.id}">Edit</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function submitForm() {
+      const fn = firstName.value.trim();
+      const mn = middleName.value.trim();
+      const ln = lastName.value.trim();
+      const ageText = age.value.trim();
+
+      if (!fn || !mn || !ln || !ageText) {
+        alert("Please fill in all fields");
+        return;
+      }
+      if (!/^\d+$/.test(ageText) || Number(ageText) <= 0) {
+        alert("Please input a valid age");
+        return;
+      }
+
+      const data = { firstName: fn, middleName: mn, lastName: ln, age: Number(ageText) };
+
+      if (editingId === null) {
+        records.push({ id: nextId++, ...data });
+      } else {
+        const rec = records.find(r => r.id === editingId);
+        if (rec) Object.assign(rec, data);
+        setMode(null);
+      }
+
+      clearForm();
+      render();
+    }
+
+    function editRecord(id) {
+      const rec = records.find(r => r.id === id);
+      if (!rec) return;
+      firstName.value = rec.firstName;
+      middleName.value = rec.middleName;
+      lastName.value = rec.lastName;
+      age.value = rec.age;
+      setMode(id);
+    }
+
+    function deleteRecord(id) {
+      records = records.filter(r => r.id !== id);
+      if (editingId === id) {
+        setMode(null);
+        clearForm();
+      }
+      render();
+    }
+
+    function clearRecords() {
+      records = [];
+      localStorage.removeItem(STORAGE_KEY);
+      setMode(null);
+      render();
+    }
+
+    function saveToLocalStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      alert("Records saved to local storage");
+    }
+
+    function loadFromLocalStorage() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (Array.isArray(saved)) {
+          records = saved;
+          nextId = records.reduce((max, r) => Math.max(max, r.id), 0) + 1;
+        }
+      } catch (err) {
+        records = [];
+      }
+    }
+
+    submitBtn.addEventListener("click", submitForm);
+
+    clearBtn.addEventListener("click", () => {
+      clearForm();
+      setMode(null);
+      firstName.focus();
+    });
+
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.action === "delete") deleteRecord(id);
+      if (btn.dataset.action === "edit") editRecord(id);
+    });
+
+    clearRecordsBtn.addEventListener("click", clearRecords);
+    saveBtn.addEventListener("click", saveToLocalStorage);
+    sortField.addEventListener("change", render);
+    sortOrder.addEventListener("change", render);
+
+    loadFromLocalStorage();
+    render();
+  </script>
+</body>
+</html>

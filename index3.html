@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Javascript 3</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; }
+    h1 { font-size: 28px; }
+
+    #message { margin: 8px 0; color: crimson; font-size: 12px; }
+
+    table { border-collapse: collapse; margin: 10px 0 10px 24px; width: 95%; max-width: 560px; }
+    th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; }
+    th { text-align: center; border-top: 2px solid #333; }
+    td.center { text-align: center; }
+
+    .completed     { color: green;   font-weight: bold; }
+    .not-completed { color: crimson; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Javascript Web Output #3</h1>
+
+  <button id="loadBtn">Load data from the API</button>
+  <button id="clearBtn">Clear Table</button>
+
+  <p>API: <a href="https://jsonplaceholder.typicode.com/todos/" target="_blank" rel="noopener">https://jsonplaceholder.typicode.com/todos/</a></p>
+
+  <div id="message"></div>
+
+  <table id="todoTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Task ID</th>
+        <th>Title</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="todoBody"></tbody>
+  </table>
+
+  <script>
+    const API_URL = "https://jsonplaceholder.typicode.com/todos/";
+
+    const loadBtn = document.getElementById("loadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const table = document.getElementById("todoTable");
+    const tbody = document.getElementById("todoBody");
+    const message = document.getElementById("message");
+
+    let isLoaded = false;   
+    let isLoading = false;  
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function renderTodos(todos) {
+      tbody.innerHTML = todos.map(todo => `
+        <tr>
+          <td class="center">${todo.userId}</td>
+          <td class="center">${todo.id}</td>
+          <td>${escapeHtml(todo.title)}</td>
+          <td class="center ${todo.completed ? "completed" : "not-completed"}">
+            ${todo.completed ? "Completed" : "Not yet Completed"}
+          </td>
+        </tr>`).join("");
+      table.style.display = "table";
+    }
+
+    async function loadData() {
+      if (isLoaded || isLoading) return;
+
+      isLoading = true;
+      message.textContent = "";
+
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error("Request failed: " + response.status);
+        const todos = await response.json();
+        renderTodos(todos);
+        isLoaded = true;
+      } catch (error) {
+        message.textContent = "Unable to load the data. Please try again.";
+        console.error(error);
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    function clearTable() {
+      tbody.innerHTML = "";
+      table.style.display = "none";
+      message.textContent = "";
+      isLoaded = false; 
+    }
+
+    loadBtn.addEventListener("click", loadData);
+    clearBtn.addEventListener("click", clearTable);
+  </script>
+</body>
+</html>
